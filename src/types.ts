@@ -52,6 +52,7 @@ export interface DiscordMessage {
   avatarUrl: string;
   embeds: Embed[];
   components: ActionRow[];
+  guideComponents?: any[];
 }
 
 export interface SavedTemplate {
@@ -59,6 +60,7 @@ export interface SavedTemplate {
   name: string;
   messages: DiscordMessage[];
   savedAt: number;
+  tags?: string[];
 }
 
 export type AppTheme = 'dark' | 'light' | 'blurple' | 'forest' | 'cyberpunk' | 'ocean';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DiscordMessage, Embed, EmbedField, ActionRow, ButtonComponent, ButtonStyle } from '../types';
 import { 
   Plus, Copy, Trash2, ChevronDown, Image, Sparkles, User, FileText, LayoutGrid, Palette, X, AlertTriangle,
-  Calendar, Hash, Clock, Wrench, Check, ArrowUp, ArrowDown, Code, ChevronsDown, ChevronsUp
+  Calendar, Hash, Clock, Wrench, Check, ArrowUp, ArrowDown, Code, ChevronsDown, ChevronsUp, MoreVertical
 } from 'lucide-react';
 import { 
   createDefaultEmbed, createDefaultField, createDefaultActionRow, createDefaultButton, genId, getMessageCharacterCount,
@@ -146,6 +146,37 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
   const [localJsonTexts, setLocalJsonTexts] = useState<Record<string, string>>({});
   const [jsonErrorTexts, setJsonErrorTexts] = useState<Record<string, string>>({});
 
+  // Active dropdown menu state for click trigger (three-dot)
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+
+  // Context menu state for right-click trigger
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    messageId: string;
+    idx: number;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    messageId: '',
+    idx: 0,
+  });
+
+  React.useEffect(() => {
+    const handleCloseAllMenus = () => {
+      setActiveDropdownId(null);
+      setContextMenu(prev => prev.visible ? { ...prev, visible: false } : prev);
+    };
+    window.addEventListener('click', handleCloseAllMenus);
+    window.addEventListener('contextmenu', handleCloseAllMenus);
+    return () => {
+      window.removeEventListener('click', handleCloseAllMenus);
+      window.removeEventListener('contextmenu', handleCloseAllMenus);
+    };
+  }, []);
+
   // --- Discord Special Formatting Helper Toolkit States ---
   const [isHelperExpanded, setIsHelperExpanded] = useState(false);
   const [helperDate, setHelperDate] = useState(() => {
@@ -240,11 +271,17 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
     }
     msg.components.forEach((row, rIdx) => {
       if (row.buttons.length > 5) {
-        warnings.push(`Action Row ${rIdx + 1} has ${row.buttons.length} buttons (Discord limit is 5).`);
+        warnings.push(`Dòng nút ${rIdx + 1} có ${row.buttons.length} nút (Giới hạn tối đa của Discord là 5 nút trên mỗi dòng).`);
       }
       row.buttons.forEach((btn, bIdx) => {
-        if (btn.style === 5 && !btn.url.trim()) {
-          warnings.push(`Action Row ${rIdx + 1} Button ${bIdx + 1} (Link style) is missing a destination URL.`);
+        if (btn.style === 5) {
+          if (!btn.url.trim()) {
+            warnings.push(`Dòng ${rIdx + 1} - Nút ${bIdx + 1} (Kiểu Link) đang bị thiếu URL liên kết.`);
+          } else if (!btn.url.trim().startsWith('http://') && !btn.url.trim().startsWith('https://')) {
+            warnings.push(`Dòng ${rIdx + 1} - Nút ${bIdx + 1} (Kiểu Link) có URL không hợp lệ (bắt đầu bằng http:// hoặc https://).`);
+          }
+        } else {
+          warnings.push(`Dòng ${rIdx + 1} - Nút ${bIdx + 1} đang là nút Tương tác (Style ${btn.style}). Discord không cho phép nút tương tác thường trên webhook chuẩn (lỗi 400). Hãy đổi sang nút Link (Style 5) và điền URL liên kết.`);
         }
       });
     });
@@ -375,6 +412,36 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
     onUpdateMessages(updated);
     
     setCollapsedMessages(prev => ({ ...prev, [clone.id]: false }));
+  };
+
+  const moveMessage = (id: string, direction: 'up' | 'down') => {
+    const idx = messages.findIndex(m => m.id === id);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === messages.length - 1) return;
+
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const updated = [...messages];
+    const temp = updated[idx];
+    updated[idx] = updated[targetIdx];
+    updated[targetIdx] = temp;
+    onUpdateMessages(updated);
+  };
+
+  const clearMessageContent = (id: string) => {
+    if (confirm('Are you sure you want to clear the content, embeds, and components of this message?')) {
+      onUpdateMessages(messages.map(m => {
+        if (m.id === id) {
+          return {
+            ...m,
+            content: '',
+            embeds: [],
+            components: []
+          };
+        }
+        return m;
+      }));
+    }
   };
 
   const handleExpandAll = () => {
@@ -655,11 +722,13 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
   return (
     <div className="flex flex-col gap-3.5 pb-20 select-none">
       {/* --- PREMIUM COMPACT DISCORD FORMATTING TOOLKIT CARD --- */}
-      <div className="bg-[var(--bg-2)] border border-[var(--border)] rounded-[var(--radius-md)] overflow-hidden transition-all duration-[var(--normal)] flex flex-col mb-2">
+      <div className="bg-[var(--bg-2)] border border-[var(--border)] rounded-[var(--radius-md)] overflow-hidden transition-all duration-[var(--normal)] flex flex-col mb-2 shadow-sm">
         {/* Header Toggle */}
         <div
           onClick={() => setIsHelperExpanded(!isHelperExpanded)}
-          className="flex items-center justify-between px-3.5 py-2.5 bg-[var(--bg-3)] border-b border-[var(--border)] cursor-pointer select-none hover:bg-[var(--bg-4)] transition-colors"
+          className={`flex items-center justify-between px-3.5 py-2.5 bg-[var(--bg-3)] cursor-pointer select-none hover:bg-[var(--bg-4)] transition-colors ${
+            isHelperExpanded ? 'border-b border-[var(--border)]' : ''
+          }`}
         >
           <div className="flex items-center gap-2">
             <Wrench className="w-[17px] h-[17px] text-[var(--brand-light)]" />
@@ -730,11 +799,11 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                         setCopiedTimestamp(true);
                         setTimeout(() => setCopiedTimestamp(false), 1500);
                       }}
-                      className="px-2 py-1 text-[10px] font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] rounded-[var(--radius-xs)] border-none cursor-pointer flex items-center gap-1 transition-colors"
+                      className="px-2 py-1 text-[10px] font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] rounded-[var(--radius-sm)] border-none cursor-pointer flex items-center gap-1 transition-colors"
                     >
                       {copiedTimestamp ? (
                         <>
-                          <Check className="w-3 h-3 text-white" />
+                           <Check className="w-3 h-3 text-white" />
                           Copied!
                         </>
                       ) : (
@@ -805,7 +874,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                           setCopiedPresetIndex(idx);
                           setTimeout(() => setCopiedPresetIndex(null), 1500);
                         }}
-                        className="px-2 py-1 text-[10.5px] font-medium text-[var(--text-2)] hover:text-white bg-[var(--bg-1)] hover:bg-[var(--bg-4)] border border-[var(--border)] rounded-[var(--radius-xs)] cursor-pointer transition-all flex items-center gap-1 select-none"
+                        className="px-2 py-1 text-[10.5px] font-medium text-[var(--text-2)] hover:text-white bg-[var(--bg-1)] hover:bg-[var(--bg-4)] border border-[var(--border)] rounded-[var(--radius-sm)] cursor-pointer transition-all flex items-center gap-1 select-none"
                       >
                         {copiedPresetIndex === idx ? (
                           <>
@@ -832,7 +901,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                         setCopiedMention(true);
                         setTimeout(() => setCopiedMention(false), 1500);
                       }}
-                      className="px-2 py-1 text-[10px] font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] rounded-[var(--radius-xs)] border-none cursor-pointer flex items-center gap-1 transition-colors"
+                      className="px-2 py-1 text-[10px] font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] rounded-[var(--radius-sm)] border-none cursor-pointer flex items-center gap-1 transition-colors"
                     >
                       {copiedMention ? (
                         <>
@@ -860,7 +929,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
       </div>
 
       {/* --- QUEUE CONTROL BOARD --- */}
-      <div className="bg-[var(--bg-2)] border border-[var(--border)] rounded-[var(--radius-md)] p-3 flex flex-wrap items-center justify-between gap-3 mb-1 select-none">
+      <div className="bg-[var(--bg-2)] border border-[var(--border)] rounded-[var(--radius-md)] p-3 flex flex-wrap items-center justify-between gap-3 mb-1 select-none shadow-sm">
         <div className="flex items-center gap-2">
           <LayoutGrid className="w-4 h-4 text-[var(--brand-light)]" />
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-1)]">
@@ -871,7 +940,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
           <button
             type="button"
             onClick={addMessage}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] border-none rounded-[var(--radius-xs)] cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] border-none rounded-[var(--radius-sm)] cursor-pointer transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Message
@@ -881,7 +950,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
             type="button"
             onClick={handleExpandAll}
             title="Expand all messages"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text-0)] bg-[var(--bg-3)] hover:bg-[var(--bg-4)] border border-[var(--border)] rounded-[var(--radius-xs)] cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text-0)] bg-[var(--bg-3)] hover:bg-[var(--bg-4)] border border-[var(--border)] rounded-[var(--radius-sm)] cursor-pointer transition-colors"
           >
             <ChevronsDown className="w-3.5 h-3.5" />
             Expand All
@@ -891,7 +960,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
             type="button"
             onClick={handleCollapseAll}
             title="Collapse all messages"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text-0)] bg-[var(--bg-3)] hover:bg-[var(--bg-4)] border border-[var(--border)] rounded-[var(--radius-xs)] cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text-0)] bg-[var(--bg-3)] hover:bg-[var(--bg-4)] border border-[var(--border)] rounded-[var(--radius-sm)] cursor-pointer transition-colors"
           >
             <ChevronsUp className="w-3.5 h-3.5" />
             Collapse All
@@ -902,7 +971,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
             onClick={handleClearAll}
             disabled={messages.length <= 1 && !messages[0]?.content && messages[0]?.embeds.length === 0 && messages[0]?.components.length === 0}
             title="Clear entire queue"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-[var(--danger)] hover:text-white bg-[rgba(242,63,66,0.06)] hover:bg-[var(--danger)] border border-[rgba(242,63,66,0.15)] rounded-[var(--radius-xs)] cursor-pointer disabled:opacity-30 disabled:pointer-events-none transition-colors ml-1"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-[var(--danger)] hover:text-white bg-[rgba(242,63,66,0.06)] hover:bg-[var(--danger)] border border-[rgba(242,63,66,0.15)] rounded-[var(--radius-sm)] cursor-pointer disabled:opacity-30 disabled:pointer-events-none transition-colors ml-1"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Clear All
@@ -925,7 +994,20 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
             {/* Message Accordion Header */}
             <div
               onClick={() => toggleMessageCollapse(msg.id)}
-              className="flex items-center gap-2 px-3.5 py-2.5 bg-[var(--bg-3)] border-b border-[var(--border)] cursor-pointer select-none hover:bg-[var(--bg-4)] transition-colors"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({
+                  visible: true,
+                  x: e.clientX,
+                  y: e.clientY,
+                  messageId: msg.id,
+                  idx,
+                });
+              }}
+              className={`flex items-center gap-2 px-3.5 py-2.5 bg-[var(--bg-3)] cursor-pointer select-none hover:bg-[var(--bg-4)] transition-colors relative ${
+                !isCollapsed ? 'border-b border-[var(--border)]' : ''
+              }`}
             >
               <ChevronDown
                 className={`w-[18px] h-[18px] text-[var(--text-3)] transition-transform duration-[var(--normal)] flex-shrink-0 ${
@@ -950,12 +1032,15 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
               </div>
               
               {/* Message control action triggers */}
-              <div className="flex items-center gap-1 opacity-0 hover:opacity-100 group-hover:opacity-100 focus-within:opacity-100 message-card-actions ml-2">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 opacity-100 md:opacity-0 hover:opacity-100 group-hover:opacity-100 focus-within:opacity-100 message-card-actions ml-2 transition-opacity duration-200 relative"
+              >
                 <button
                   type="button"
                   onClick={(e) => duplicateMessage(msg.id, e)}
                   title="Duplicate Message"
-                  className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-xs)] text-[var(--text-3)] hover:bg-[var(--bg-5)] hover:text-[var(--text-0)] transition-colors"
+                  className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-3)] hover:bg-[var(--bg-5)] hover:text-[var(--text-0)] transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
@@ -963,10 +1048,103 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                   type="button"
                   onClick={(e) => deleteMessage(msg.id, e)}
                   title="Delete Message"
-                  className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-xs)] text-[var(--text-3)] hover:bg-[rgba(242,63,66,0.2)] hover:text-[var(--danger)] transition-colors"
+                  className="w-6 h-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-3)] hover:bg-[rgba(242,63,66,0.2)] hover:text-[var(--danger)] transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveDropdownId(activeDropdownId === msg.id ? null : msg.id);
+                    }}
+                    title="Message Actions Menu"
+                    className={`w-6 h-6 flex items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                      activeDropdownId === msg.id
+                        ? 'bg-[var(--bg-5)] text-[var(--text-0)]'
+                        : 'text-[var(--text-3)] hover:bg-[var(--bg-5)] hover:text-[var(--text-0)]'
+                    }`}
+                  >
+                    <MoreVertical className="w-3.5 h-3.5" />
+                  </button>
+                  {activeDropdownId === msg.id && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-0 mt-1 w-48 bg-[var(--bg-2)] border border-[var(--border-strong)] rounded-[var(--radius-sm)] shadow-[var(--shadow-lg)] z-50 py-1 font-sans text-left"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setActiveDropdownId(null);
+                          duplicateMessage(msg.id, e);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-[var(--text-3)]" />
+                        Duplicate Message
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveDropdownId(null);
+                          toggleMessageCollapse(msg.id);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5 text-[var(--text-3)]" />
+                        {isCollapsed ? 'Expand Message' : 'Collapse Message'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => {
+                          setActiveDropdownId(null);
+                          moveMessage(msg.id, 'up');
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2 disabled:opacity-35 disabled:pointer-events-none"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5 text-[var(--text-3)]" />
+                        Move Up
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === messages.length - 1}
+                        onClick={() => {
+                          setActiveDropdownId(null);
+                          moveMessage(msg.id, 'down');
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2 disabled:opacity-35 disabled:pointer-events-none"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5 text-[var(--text-3)]" />
+                        Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveDropdownId(null);
+                          clearMessageContent(msg.id);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-[var(--text-3)]" />
+                        Clear Content
+                      </button>
+                      <div className="h-[1px] bg-[var(--border)] my-1" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setActiveDropdownId(null);
+                          deleteMessage(msg.id, e);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[rgba(242,63,66,0.1)] border-none bg-transparent cursor-pointer flex items-center gap-2 font-medium"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-[var(--danger)]" />
+                        Delete Message
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -978,7 +1156,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => setMessageActiveTab(msg.id, 'content')}
-                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-xs)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       activeTab === 'content' ? 'bg-[var(--bg-4)] text-[var(--text-0)]' : 'bg-transparent text-[var(--text-3)] hover:text-[var(--text-1)]'
                     }`}
                   >
@@ -988,7 +1166,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => setMessageActiveTab(msg.id, 'profile')}
-                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-xs)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       activeTab === 'profile' ? 'bg-[var(--bg-4)] text-[var(--text-0)]' : 'bg-transparent text-[var(--text-3)] hover:text-[var(--text-1)]'
                     }`}
                   >
@@ -998,7 +1176,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => setMessageActiveTab(msg.id, 'embeds')}
-                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-xs)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       activeTab === 'embeds' ? 'bg-[var(--bg-4)] text-[var(--text-0)]' : 'bg-transparent text-[var(--text-3)] hover:text-[var(--text-1)]'
                     }`}
                   >
@@ -1013,7 +1191,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => setMessageActiveTab(msg.id, 'components')}
-                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-xs)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       activeTab === 'components' ? 'bg-[var(--bg-4)] text-[var(--text-0)]' : 'bg-transparent text-[var(--text-3)] hover:text-[var(--text-1)]'
                     }`}
                   >
@@ -1028,7 +1206,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => handleSelectJsonTab(msg)}
-                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-xs)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       activeTab === 'json' ? 'bg-[var(--bg-4)] text-[var(--text-0)]' : 'bg-transparent text-[var(--text-3)] hover:text-[var(--text-1)]'
                     }`}
                   >
@@ -1798,6 +1976,88 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
         <Plus className="w-4 h-4" />
         Add Message
       </button>
+
+      {/* Right-click Context Menu */}
+      {contextMenu.visible && (
+        <div
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          className="fixed bg-[var(--bg-2)] border border-[var(--border-strong)] rounded-[var(--radius-sm)] shadow-[var(--shadow-lg)] z-50 py-1 w-48 font-sans select-none animate-fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-4)] uppercase tracking-wider border-b border-[var(--border)] mb-1">
+            Message {contextMenu.idx + 1} Actions
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              setContextMenu(prev => ({ ...prev, visible: false }));
+              duplicateMessage(contextMenu.messageId, e);
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2"
+          >
+            <Copy className="w-3.5 h-3.5 text-[var(--text-3)]" />
+            Duplicate Message
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(prev => ({ ...prev, visible: false }));
+              toggleMessageCollapse(contextMenu.messageId);
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2"
+          >
+            <ChevronDown className="w-3.5 h-3.5 text-[var(--text-3)]" />
+            {(collapsedMessages[contextMenu.messageId] ?? false) ? 'Expand Message' : 'Collapse Message'}
+          </button>
+          <button
+            type="button"
+            disabled={contextMenu.idx === 0}
+            onClick={() => {
+              setContextMenu(prev => ({ ...prev, visible: false }));
+              moveMessage(contextMenu.messageId, 'up');
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2 disabled:opacity-35 disabled:pointer-events-none"
+          >
+            <ArrowUp className="w-3.5 h-3.5 text-[var(--text-3)]" />
+            Move Up
+          </button>
+          <button
+            type="button"
+            disabled={contextMenu.idx === messages.length - 1}
+            onClick={() => {
+              setContextMenu(prev => ({ ...prev, visible: false }));
+              moveMessage(contextMenu.messageId, 'down');
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2 disabled:opacity-35 disabled:pointer-events-none"
+          >
+            <ArrowDown className="w-3.5 h-3.5 text-[var(--text-3)]" />
+            Move Down
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(prev => ({ ...prev, visible: false }));
+              clearMessageContent(contextMenu.messageId);
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-1)] hover:bg-[var(--bg-4)] hover:text-[var(--text-0)] border-none bg-transparent cursor-pointer flex items-center gap-2"
+          >
+            <FileText className="w-3.5 h-3.5 text-[var(--text-3)]" />
+            Clear Content
+          </button>
+          <div className="h-[1px] bg-[var(--border)] my-1" />
+          <button
+            type="button"
+            onClick={(e) => {
+              setContextMenu(prev => ({ ...prev, visible: false }));
+              deleteMessage(contextMenu.messageId, e);
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[rgba(242,63,66,0.1)] border-none bg-transparent cursor-pointer flex items-center gap-2 font-medium"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-[var(--danger)]" />
+            Delete Message
+          </button>
+        </div>
+      )}
     </div>
   );
 };

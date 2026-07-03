@@ -217,11 +217,18 @@ export function buildDiscordPayload(msg: DiscordMessage, webhook: WebhookInfo | 
 // Convert standard Discord Webhook payload object into DiscordMessage model structure
 export function parseDiscordPayload(payload: any, existingMsgId?: string): DiscordMessage {
   const msgId = existingMsgId || genId();
+  
+  const avatarVal = typeof payload.avatar_url === 'string' 
+    ? payload.avatar_url 
+    : (typeof payload.avatarUrl === 'string' 
+        ? payload.avatarUrl 
+        : (typeof payload.avatar === 'string' ? payload.avatar : ''));
+
   const msg: DiscordMessage = {
     id: msgId,
     content: typeof payload.content === 'string' ? payload.content : '',
     username: typeof payload.username === 'string' ? payload.username : '',
-    avatarUrl: typeof payload.avatar_url === 'string' ? payload.avatar_url : '',
+    avatarUrl: avatarVal,
     embeds: [],
     components: []
   };
@@ -246,8 +253,8 @@ export function parseDiscordPayload(payload: any, existingMsgId?: string): Disco
         authorName: emb.author?.name || '',
         authorUrl: emb.author?.url || '',
         authorIconUrl: emb.author?.icon_url || '',
-        thumbnail: emb.thumbnail?.url || '',
-        image: emb.image?.url || '',
+        thumbnail: typeof emb.thumbnail === 'string' ? emb.thumbnail : (emb.thumbnail?.url || ''),
+        image: typeof emb.image === 'string' ? emb.image : (emb.image?.url || ''),
         footerText: emb.footer?.text || '',
         footerIconUrl: emb.footer?.icon_url || '',
         timestamp: !!emb.timestamp,
@@ -268,23 +275,32 @@ export function parseDiscordPayload(payload: any, existingMsgId?: string): Disco
   }
 
   if (Array.isArray(payload.components)) {
-    msg.components = payload.components
-      .filter((row: any) => row.type === 1 && Array.isArray(row.components))
-      .map((row: any) => {
-        const actionRow: ActionRow = {
-          id: genId(),
-          buttons: row.components
-            .filter((c: any) => c.type === 2)
-            .map((c: any) => ({
-              id: genId(),
-              style: c.style || 5,
-              label: c.label || '',
-              url: c.url || '',
-              emoji: c.emoji?.name || ''
-            }))
-        };
-        return actionRow;
-      });
+    const isGuide = payload.components.some((c: any) => c.type === 12 || c.type === 17 || c.type === 9 || c.type === 10 || c.type === 14);
+    if (isGuide) {
+      msg.guideComponents = payload.components;
+    } else {
+      msg.components = payload.components
+        .filter((row: any) => row.type === 1 && Array.isArray(row.components))
+        .map((row: any) => {
+          const actionRow: ActionRow = {
+            id: genId(),
+            buttons: row.components
+              .filter((c: any) => c.type === 2)
+              .map((c: any) => {
+                const customId = c.custom_id || c.customId || c.id || '';
+                const cleanId = customId.startsWith('btn_') ? customId.replace('btn_', '') : (customId || genId());
+                return {
+                  id: cleanId,
+                  style: c.style || 5,
+                  label: c.label || '',
+                  url: c.url || '',
+                  emoji: c.emoji?.name || ''
+                };
+              })
+          };
+          return actionRow;
+        });
+    }
   }
 
   return msg;
@@ -296,7 +312,7 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
   
   // Extract username and avatar from standard fields or nested author object
   let username = raw.username || '';
-  let avatarUrl = raw.avatar_url || raw.avatarUrl || '';
+  let avatarUrl = raw.avatar_url || raw.avatarUrl || raw.avatar || '';
   
   if (raw.author && typeof raw.author === 'object') {
     const author = raw.author;
@@ -314,6 +330,9 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
   // Extract main content
   let content = raw.content || '';
   
+  // Check if standard components of type 1 (Action Rows) are present
+  const hasStandardActionRows = Array.isArray(raw.components) && raw.components.some((row: any) => row.type === 1);
+
   // Track elements from custom components
   const extractedTexts: string[] = [];
   const extractedButtons: ButtonComponent[] = [];
@@ -324,7 +343,7 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
     if (!node || typeof node !== 'object') return;
     
     // Check if this node is a button (type 2) or has button-like fields
-    if (node.type === 2 || (node.label && (node.url || node.style))) {
+    if ((node.type === 2 || (node.label && (node.url || node.style))) && !hasStandardActionRows) {
       let emojiStr = '';
       if (node.emoji) {
         if (typeof node.emoji === 'string') {
@@ -333,8 +352,10 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
           emojiStr = node.emoji.name || node.emoji.id || '';
         }
       }
+      const customId = node.custom_id || node.customId || node.id || '';
+      const cleanId = customId.startsWith('btn_') ? customId.replace('btn_', '') : (customId || genId());
       extractedButtons.push({
-        id: node.id || genId(),
+        id: cleanId,
         style: (node.style === 5 || node.url) ? 5 : (node.style || 1) as ButtonStyle,
         label: node.label || '',
         url: node.url || '',
@@ -407,8 +428,8 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
         authorName: emb.author?.name || '',
         authorUrl: emb.author?.url || '',
         authorIconUrl: emb.author?.icon_url || '',
-        thumbnail: emb.thumbnail?.url || '',
-        image: emb.image?.url || '',
+        thumbnail: typeof emb.thumbnail === 'string' ? emb.thumbnail : (emb.thumbnail?.url || ''),
+        image: typeof emb.image === 'string' ? emb.image : (emb.image?.url || ''),
         footerText: emb.footer?.text || '',
         footerIconUrl: emb.footer?.icon_url || '',
         timestamp: !!emb.timestamp,
@@ -451,7 +472,39 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
 
   // Group buttons into standard Action Rows
   const components: ActionRow[] = [];
-  if (extractedButtons.length > 0) {
+  if (hasStandardActionRows) {
+    raw.components
+      .filter((row: any) => row.type === 1 && Array.isArray(row.components))
+      .forEach((row: any) => {
+        const actionRow: ActionRow = {
+          id: genId(),
+          buttons: row.components
+            .filter((c: any) => c.type === 2)
+            .map((c: any) => {
+              let emojiStr = '';
+              if (c.emoji) {
+                if (typeof c.emoji === 'string') {
+                  emojiStr = c.emoji;
+                } else if (typeof c.emoji === 'object') {
+                  emojiStr = c.emoji.name || c.emoji.id || '';
+                }
+              }
+              const customId = c.custom_id || c.customId || c.id || '';
+              const cleanId = customId.startsWith('btn_') ? customId.replace('btn_', '') : (customId || genId());
+              return {
+                id: cleanId,
+                style: (c.style || 5) as ButtonStyle,
+                label: c.label || '',
+                url: c.url || '',
+                emoji: emojiStr
+              };
+            })
+        };
+        if (actionRow.buttons.length > 0) {
+          components.push(actionRow);
+        }
+      });
+  } else if (extractedButtons.length > 0) {
     let currentRow = createDefaultActionRow();
     extractedButtons.forEach((btn) => {
       if (currentRow.buttons.length >= 5) {
@@ -463,28 +516,9 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
     if (currentRow.buttons.length > 0) {
       components.push(currentRow);
     }
-  } else if (Array.isArray(raw.components)) {
-    // If we didn't extract any custom buttons but standard buttons are declared, parse standard layout
-    raw.components
-      .filter((row: any) => row.type === 1 && Array.isArray(row.components))
-      .forEach((row: any) => {
-        const actionRow: ActionRow = {
-          id: genId(),
-          buttons: row.components
-            .filter((c: any) => c.type === 2)
-            .map((c: any) => ({
-              id: genId(),
-              style: (c.style || 5) as ButtonStyle,
-              label: c.label || '',
-              url: c.url || '',
-              emoji: c.emoji?.name || ''
-            }))
-        };
-        if (actionRow.buttons.length > 0) {
-          components.push(actionRow);
-        }
-      });
   }
+
+  const isGuide = Array.isArray(raw.components) && raw.components.some((c: any) => c.type === 12 || c.type === 17 || c.type === 9 || c.type === 10 || c.type === 14);
 
   return {
     id: msgId,
@@ -492,7 +526,8 @@ export function parseAnyRawMessage(raw: any): DiscordMessage {
     username,
     avatarUrl,
     embeds,
-    components
+    components,
+    ...(isGuide ? { guideComponents: raw.components } : {})
   };
 }
 

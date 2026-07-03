@@ -327,3 +327,34 @@ body {
 .spinner-anim {
   animation: spin 0.75s linear infinite;
 }
+
+/* Polished high-craft micro-interaction animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideDown {
+  from { transform: translateY(-8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes pulseSubtle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.03); opacity: 0.95; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 200ms var(--ease) forwards;
+}
+.animate-slide-down {
+  animation: slideDown 250ms var(--ease) forwards;
+}
+.animate-slide-up {
+  animation: slideUp 250ms var(--ease) forwards;
+}
+.animate-pulse-subtle {
+  animation: pulseSubtle 2s ease-in-out infinite;
+}
