@@ -1,0 +1,6 @@
+{
+  "name": "Discord Webhook Designer",
+  "description": "An interactive and visually polished Discord webhook message designer with live preview, custom themes, multiple message queues, embeds, buttons, gradient avatar builder, and JSON template support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

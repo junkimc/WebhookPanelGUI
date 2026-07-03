@@ -1,0 +1,329 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Custom CSS variables for themes */
+:root {
+  /* Brand colors */
+  --brand: #5865f2;
+  --brand-hover: #4752c4;
+  --brand-light: #7289da;
+  --success: #23a55a;
+  --success-hover: #1a8a47;
+  --danger: #f23f42;
+  --danger-hover: #c93b3e;
+  --warning: #f0b232;
+
+  /* Dark theme (default) */
+  --bg-0: #111214;
+  --bg-1: #1e1f22;
+  --bg-2: #2b2d31;
+  --bg-3: #313338;
+  --bg-4: #383a40;
+  --bg-5: #404249;
+  --surface: #2b2d31;
+  --surface-2: #35373c;
+  --surface-3: #3f4147;
+
+  --text-0: #f2f3f5;
+  --text-1: #dbdee1;
+  --text-2: #b5bac1;
+  --text-3: #80848e;
+  --text-4: #5c5f66;
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  --input-bg: #1e1f22;
+  --input-border: rgba(255, 255, 255, 0.08);
+  --input-border-focus: var(--brand);
+  --input-text: var(--text-0);
+  --input-placeholder: var(--text-3);
+
+  /* Discord preview elements */
+  --dc-bg: #313338;
+  --dc-chat: #36393f;
+  --dc-mention: rgba(88, 101, 242, 0.3);
+  --dc-code-bg: #2b2d31;
+  --dc-blockquote: #4e5058;
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+
+  /* Dimensions */
+  --topbar-height: 52px;
+  --webhookbar-height: 46px;
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+  /* Timing */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --fast: 120ms;
+  --normal: 200ms;
+  --slow: 350ms;
+}
+
+/* Light Theme overrides */
+html.light {
+  --bg-0: #f2f3f5;
+  --bg-1: #e3e5e8;
+  --bg-2: #edeef0;
+  --bg-3: #ffffff;
+  --bg-4: #f2f3f5;
+  --bg-5: #e3e5e8;
+  --surface: #ffffff;
+  --surface-2: #f2f3f5;
+  --surface-3: #e3e5e8;
+  --text-0: #060607;
+  --text-1: #2e3338;
+  --text-2: #4e5058;
+  --text-3: #80848e;
+  --text-4: #b5bac1;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --input-bg: #e3e5e8;
+  --input-border: rgba(0, 0, 0, 0.1);
+  --input-text: var(--text-0);
+  --input-placeholder: var(--text-3);
+  --dc-bg: #ffffff;
+  --dc-chat: #f2f3f5;
+  --dc-code-bg: #e3e5e8;
+  --dc-blockquote: #d4d6db;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+}
+
+/* Custom visual theme presets */
+html.blurple {
+  --bg-0: #1e1f36;
+  --bg-1: #282a4a;
+  --bg-2: #333561;
+  --bg-3: #3d4078;
+  --bg-4: #484b8a;
+  --bg-5: #52559a;
+  --surface: #2f3158;
+  --surface-2: #3a3c6b;
+  --surface-3: #45477d;
+  --text-0: #eef0ff;
+  --text-1: #d5d8f0;
+  --text-2: #b0b4d4;
+  --text-3: #8488b5;
+  --text-4: #60648a;
+  --border: rgba(88, 101, 242, 0.15);
+  --border-strong: rgba(88, 101, 242, 0.25);
+  --input-bg: #242647;
+  --input-border: rgba(88, 101, 242, 0.12);
+  --dc-bg: #333561;
+  --dc-chat: #2e305a;
+  --dc-code-bg: #282a4a;
+  --scrollbar-thumb: rgba(88, 101, 242, 0.2);
+  --scrollbar-thumb-hover: rgba(88, 101, 242, 0.35);
+}
+
+html.forest {
+  --bg-0: #0d1a12;
+  --bg-1: #142118;
+  --bg-2: #1b2e20;
+  --bg-3: #233a2a;
+  --bg-4: #2a4633;
+  --bg-5: #32523c;
+  --surface: #1b2e20;
+  --surface-2: #233a2a;
+  --surface-3: #2a4633;
+  --text-0: #e8f5e9;
+  --text-1: #c8e6c9;
+  --text-2: #a5d6a7;
+  --text-3: #6d9b74;
+  --text-4: #4a7550;
+  --border: rgba(56, 142, 60, 0.15);
+  --border-strong: rgba(56, 142, 60, 0.25);
+  --input-bg: #0d1a12;
+  --input-border: rgba(56, 142, 60, 0.12);
+  --dc-bg: #233a2a;
+  --dc-chat: #1b2e20;
+  --dc-code-bg: #142118;
+  --brand: #43a047;
+  --brand-hover: #388e3c;
+  --brand-light: #66bb6a;
+  --scrollbar-thumb: rgba(56, 142, 60, 0.2);
+  --scrollbar-thumb-hover: rgba(56, 142, 60, 0.35);
+}
+
+html.cyberpunk {
+  --bg-0: #0a0a14;
+  --bg-1: #0f0f1e;
+  --bg-2: #161628;
+  --bg-3: #1e1e36;
+  --bg-4: #28283f;
+  --bg-5: #32324a;
+  --surface: #161628;
+  --surface-2: #1e1e36;
+  --surface-3: #28283f;
+  --text-0: #f8f0ff;
+  --text-1: #e0d4f0;
+  --text-2: #c0aae0;
+  --text-3: #9078b8;
+  --text-4: #6a5090;
+  --border: rgba(255, 0, 127, 0.12);
+  --border-strong: rgba(255, 0, 127, 0.25);
+  --input-bg: #0a0a14;
+  --input-border: rgba(255, 0, 127, 0.1);
+  --dc-bg: #1e1e36;
+  --dc-chat: #161628;
+  --dc-code-bg: #0f0f1e;
+  --brand: #ff007f;
+  --brand-hover: #e0006f;
+  --brand-light: #ff4da6;
+  --scrollbar-thumb: rgba(255, 0, 127, 0.15);
+  --scrollbar-thumb-hover: rgba(255, 0, 127, 0.3);
+}
+
+html.ocean {
+  --bg-0: #061520;
+  --bg-1: #0a1f2e;
+  --bg-2: #0f2c3f;
+  --bg-3: #163a52;
+  --bg-4: #1e4a65;
+  --bg-5: #265a78;
+  --surface: #0f2c3f;
+  --surface-2: #163a52;
+  --surface-3: #1e4a65;
+  --text-0: #e0f4ff;
+  --text-1: #b8dff5;
+  --text-2: #88c8e8;
+  --text-3: #5a9fc0;
+  --text-4: #3d7a98;
+  --border: rgba(0, 119, 182, 0.15);
+  --border-strong: rgba(0, 119, 182, 0.25);
+  --input-bg: #061520;
+  --input-border: rgba(0, 119, 182, 0.12);
+  --dc-bg: #163a52;
+  --dc-chat: #0f2c3f;
+  --dc-code-bg: #0a1f2e;
+  --brand: #0096c7;
+  --brand-hover: #0077b6;
+  --brand-light: #48cae4;
+  --scrollbar-thumb: rgba(0, 119, 182, 0.2);
+  --scrollbar-thumb-hover: rgba(0, 119, 182, 0.35);
+}
+
+/* Reset base elements to adhere to visual standards */
+body {
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text-0);
+  background: var(--bg-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Panel divider & grab handles styling */
+#resizer::before {
+  content: '⋮⋮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-4);
+  font-size: 14px;
+  letter-spacing: -3px;
+  pointer-events: none;
+  font-weight: 700;
+}
+
+/* Accent header strip for the editor panel */
+#editorPanel::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand), #eb459e);
+  flex-shrink: 0;
+}
+
+/* Markdown parsing output styling */
+.dc-text strong {
+  font-weight: 700;
+}
+.dc-text em {
+  font-style: italic;
+}
+.dc-text u {
+  text-decoration: underline;
+}
+.dc-text s {
+  text-decoration: line-through;
+}
+.dc-text code {
+  background: var(--dc-code-bg);
+  border-radius: 3px;
+  padding: 0px 4px;
+  font-size: 0.85em;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+.dc-text pre {
+  background: var(--dc-code-bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 6px 0;
+  overflow-x: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.dc-text blockquote {
+  border-left: 4px solid var(--dc-blockquote);
+  padding-left: 12px;
+  margin: 6px 0;
+  color: var(--text-2);
+}
+.dc-text a {
+  color: #00a8fc;
+}
+.dc-text a:hover {
+  text-decoration: underline;
+}
+
+/* Canvas styling */
+#avCanvas {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  margin: 20px auto;
+  display: block;
+  background: #111;
+}
+
+/* Spinner anim */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner-anim {
+  animation: spin 0.75s linear infinite;
+}
