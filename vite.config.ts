@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: './',
+    base: process.env.DISABLE_HMR === 'true' ? '/' : './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
